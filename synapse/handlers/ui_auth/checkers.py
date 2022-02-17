@@ -311,6 +311,86 @@ class RegistrationTokenAuthChecker(UserInteractiveAuthChecker):
                 401, "Invalid registration token", errcode=Codes.UNAUTHORIZED
             )
 
+class BsspekeLoginAuthChecker(UserInteractiveAuthChecker):
+    AUTH_TYPE = LoginType.BSSPEKE_ECC
+
+    def __init__(self, hs: "HomeServer"):
+        self.hs = hs
+        self.store = hs.get_datastore()
+
+        from _bsspeke import ffi, lib
+        self.ffi = ffi
+        self.lib = lib
+
+    def is_enabled(self) -> bool:
+        # FIXME Make this depend on the homeserver configuration
+        return True
+
+    async def check_auth(self, authdict: dict, clientip: str) -> Any:
+        if "session" not in authdict:
+            raise LoginError(400, "Missing UIA session", Codes.MISSING_PARAM)
+
+        from synapse.handlers.ui_auth import UIAuthSessionDataConstants
+        auth_handler = self.hs.get_auth_handler()
+
+        session = authdict["session"]
+
+        # We can use auth_handler.set_session_data() to save state for this session
+        # Examples where we will need this:
+        #   * When we load the user's long-term public key `V` and base point `P` into memory
+        #   * When we generate our ephemeral keypair `(b,B)`
+
+        # Ok, now where are we in the protocol with this session?
+        # Our first check should be for the parameters that the client sends last
+        # If they are there, then we know this is the final request
+        if "A" in authdict and "client_verifier" in auth_dict:
+            A = authdict["A"]
+
+            V = auth_handler.get_session_data(session, "bsspeke.V")
+            if V is None:
+                raise LoginError(500, "Could not find public key V", Codes.NOT_FOUND)
+
+            bsspeke_server = auth_handler.get_session_data(session, "bsspeke.server")
+            if bsspeke_server is None:
+                raise LoginError(500, "Could not find BS-SPEKE session context", Codes.NOT_FOUND)
+
+            bsspeke_server.derive_shared_key(A, V, ctx)
+
+            client_verifier = authdict["client_verifier"]
+            rc = bsspeke_server.verify_client(client_verifier)
+            if rc != 0:
+                raise LoginError(403, "Client verification failed", Codes.FORBIDDEN)
+            else:
+                server_verifier = bsspeke_server.generate_verifier()
+                # FIXME Return HTTP 200 OK but also include the server_verifier
+            
+
+        # Did we get the parameters for the next-to-last request, for the OPRF?
+        elif "blind" in auth_dict:
+            blind = auth_dict["blind"]
+            if "identifier" not in auth_dict or "type" not in auth_dict["identifier"] or auth_dict["identifier"]["type"] != "m.id.user":
+                raise LoginError(400, "Missing user identifier", Codes.MISSING_PARAM)
+            if "user" not in auth_dict["identifier"]:
+                raise LoginError(400, "Missing user identifier", Codes.MISSING_PARAM)
+
+            client_user_id = auth_dict["identifier"]["user"]
+
+            # FIXME Look up the actual salt for user client_user_id
+            salt = bytes(32)
+
+            # Call the BS-SPEKE library to blind the salt
+
+            # Generate our ephemeral keypair `(b,B)`
+            # Return the blinded salt and our ephemeral public key `B`
+            
+
+        # Ok it's not request 2 or 3, and request 1 is the one before we even get here
+        # So WTF is this?
+        else:
+            raise LoginError(400, "Unknown request", Codes.UNRECOGNIZED)
+            
+        
+
 
 INTERACTIVE_AUTH_CHECKERS = [
     DummyAuthChecker,

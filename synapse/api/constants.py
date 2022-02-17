@@ -82,6 +82,7 @@ class LoginType:
     SSO: Final = "m.login.sso"
     DUMMY: Final = "m.login.dummy"
     REGISTRATION_TOKEN: Final = "m.login.registration_token"
+    BSSPEKE_ECC: Final = "org.futo.msc3726.login.bsspeke.ecc"
 
 
 # This is used in the `type` parameter for /register when called by

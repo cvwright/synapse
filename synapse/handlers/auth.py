@@ -731,6 +731,13 @@ class AuthHandler:
             }
         }
 
+    def _get_params_bsspeke_ecc(self) -> dict:
+        # FIXME Make this use the actual homeserver config
+        return {
+            "curve": "curve25519",
+            "hash": "blake2b",
+        }
+
     def _auth_dict_for_flows(
         self,
         flows: List[List[str]],
@@ -743,6 +750,7 @@ class AuthHandler:
         get_params = {
             LoginType.RECAPTCHA: self._get_params_recaptcha,
             LoginType.TERMS: self._get_params_terms,
+            LoginType.BSSPEKE_ECC: self._get_params_bsspeke_ecc,
         }
 
         params: Dict[str, Any] = {}
